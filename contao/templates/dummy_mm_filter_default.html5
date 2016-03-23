@@ -1,0 +1,80 @@
+<!-- indexer::stop -->
+<section
+    class="<?php echo $this->class; ?> block"<?php echo $this->cssID; ?><?php if ($this->style): ?> style="<?php echo $this->style; ?>"<?php endif; ?>>
+    <?php if ($this->headline): ?>
+
+    <<?php echo $this->hl; ?>><?php echo $this->headline; ?></<?php echo $this->hl; ?>>
+<?php endif; ?>
+
+<form<?php if ($this->action): ?> action="<?php echo $this->action; ?>"<?php endif; ?> method="post">
+    <input name="REQUEST_TOKEN" type="hidden" value="{{request_token}}"/>
+    <input type="hidden" name="FORM_SUBMIT" value="<?php echo $this->formid; ?>">
+
+    <div class="formbody">
+        <?php foreach ((is_array($this->filters) ? $this->filters : array()) as $key => $filter): ?>
+            <?php
+            /**
+             * This version shows how to write his own select.
+             */
+            ?>
+            <?php if ($key == 'my_url_param_name'): ?>
+                <div class="widget <?php echo $filter['class']; ?>">
+                    <?php echo $filter['label']; ?>
+                    <select name="<?php echo $key; ?>" id="ctrl_<?php echo $key; ?>" class="">
+                        <?php foreach($filter['options'] as $option): ?>
+                            <option value="<?php echo $option['key']; ?>"<?php if($option['keactivey']): ?> selected="selected"<?php endif;?>>
+                                <?php echo $option['value'] ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            <?php endif; ?>
+
+            <?php
+            /**
+             * This version use some language arrays for custom values.
+             */
+            ?>
+            <?php if ($key == 'my_url_param_name'): ?>
+                <div class="widget <?php echo $filter['class']; ?>">
+                    <?php echo $filter['label']; ?>
+                    <select name="<?php echo $key; ?>" id="ctrl_<?php echo $key; ?>" class="">
+                        <?php foreach($filter['options'] as $option): ?>
+                            <?php
+                                if(isset($GLOBALS['TL_LANG']['MSC']['my_own_values'][$option['key']])) {
+                                    $value = $GLOBALS['tl_lang']['default']['my_trams'][$option['key']];
+                                } else {
+                                    $value = $option['value'];
+                                }
+                            ?>
+                            <option value="<?php echo $option['key']; ?>"<?php if($option['keactivey']): ?> selected="selected"<?php endif;?>>
+                                <?php echo $value; ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            <?php endif; ?>
+			
+			<?php
+            /**
+             * Skip the default output for this special field.
+             */
+            ?>
+            <?php if(in_array($key, array('my_url_param_name'))) continue; ?>
+
+            <div class="widget <?php echo $filter['class']; ?>">
+                <?php echo $filter['label']; ?>
+                <?php echo $filter['value']; ?>
+            </div>
+        <?php endforeach; ?>
+
+        <?php if ($this->submit): ?>
+            <div class="submit_container">
+                <input type="submit" class="submit" value="<?php echo $this->submit; ?>">
+            </div>
+        <?php endif; ?>
+    </div>
+</form>
+
+</section>
+<!-- indexer::continue -->
