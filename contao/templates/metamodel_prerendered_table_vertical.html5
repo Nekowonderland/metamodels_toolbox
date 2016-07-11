@@ -1,0 +1,36 @@
+<?php
+$strRendersettings = isset($this->settings) ? 'settings' : 'view';
+$ignoredColValues  = array();
+?>
+
+<?php if (count($this->data)):
+    $attributes = $this->data[0]['attributes'];
+    reset($attributes);
+    $firstAttribute = array('key' =>  key($attributes), 'name' => current($attributes));
+    ?>
+
+    <table class="layout_full">
+        <tbody>
+        <?php foreach ($this->data as $arrItem): ?>
+            <tr>
+                <td class="field <?php echo $firstAttribute['key']; ?>" colspan="2" style="font-weight: bold;">
+                    <?php echo $arrItem['text'][$firstAttribute['key']]; ?>
+                </td>
+            </tr>
+            <?php foreach ($attributes as $field => $strName): ?>
+            <tr>
+                <?php if (in_array($field, $ignoredColValues)) continue; ?>
+                <td class="legend <?php echo $field; ?>">
+                    <?php echo $strName; ?>
+                </td>
+                <td class="field <?php echo $field; ?>">
+                    <?php echo $arrItem['text'][$field]; ?>
+                </td>
+            </tr>
+            <?php endforeach; ?>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+<?php else: ?>
+    <p class="info"><?php echo $this->noItemsMsg; ?></p>
+<?php endif; ?>

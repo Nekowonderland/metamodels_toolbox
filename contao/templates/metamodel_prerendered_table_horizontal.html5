@@ -1,0 +1,34 @@
+<?php
+$strRendersettings = isset($this->settings) ? 'settings' : 'view';
+$ignoredColValues  = array();
+?>
+
+<?php if (count($this->data)):
+    $attributes = $this->data[0]['attributes']; ?>
+    <table class="layout_full">
+        <thead>
+            <tr>
+                <?php foreach ($attributes as $field => $strName): ?>
+                    <?php if (in_array($field, $ignoredColValues)) continue; ?>
+                    <th>
+                        <?php echo $strName; ?>
+                    </th>
+                <?php endforeach; ?>
+            </tr>
+        </thead>
+        <tbody>
+        <?php foreach ($this->data as $arrItem): ?>
+            <tr class="item <?php echo $arrItem['class']; ?>">
+                <?php foreach ($attributes as $field => $strName): ?>
+                    <?php if (in_array($field, $ignoredColValues)) continue; ?>
+                    <td class="field <?php echo $field; ?> ">
+                        <?php echo $arrItem['text'][$field]; ?>
+                    </td>
+                <?php endforeach; ?>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+<?php else: ?>
+    <p class="info"><?php echo $this->noItemsMsg; ?></p>
+<?php endif; ?>
