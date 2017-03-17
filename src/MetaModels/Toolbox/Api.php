@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Created by PhpStorm.
  * User: stefan.heimes
@@ -7,7 +8,6 @@
  */
 
 namespace MetaModels\Toolbox;
-
 
 use MetaModels\IMetaModel;
 use MetaModels\IMetaModelsServiceContainer;
