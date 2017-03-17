@@ -14,17 +14,28 @@ use MetaModels\IMetaModelsServiceContainer;
 
 class Api
 {
-    /**
-     * Retrieve the service container.
+   /**
+     * Get the default service container for MetaModels. This is the basic to work with MetaModels.
+     * Since MetaModels add all main functions to this container. We should always use it.
      *
-     * @return IMetaModelsServiceContainer
+     * The better way is to inject this. But in all cases we would use the default container. So we can
+     * leave it like it is.
      *
-     * @SuppressWarnings(PHPMD.Superglobals)
-     * @SuppressWarnings(PHPMD.CamelCaseVariableName)
+     * @return IMetaModelsServiceContainer The service container.
+     *
+     * @throws \RuntimeException If the container is not the right one.
      */
-    static public function getServiceContainer()
+    public static function getDefaultServiceContainer()
     {
-        return $GLOBALS['container']['metamodels-service-container'];
+        // Get the container...
+        $serviceContainer = $GLOBALS['container']['metamodels-service-container'];
+
+        // and check if we have the right one.
+        if (!($serviceContainer instanceof IMetaModelsServiceContainer)) {
+            throw new \RuntimeException('Unable to retrieve default service container.');
+        }
+
+        return $serviceContainer;
     }
 
     /**
@@ -38,85 +49,198 @@ class Api
     }
 
     /**
-     * Get a MetaModels by his name.
+     * Get a MetaModels by the given name.
      *
-     * @param string $name The name of the MetaModels.
+     * @param string $metaModelIdentifier The name of the MetaModels
      *
-     * @return IMetaModel|null The metamodels or null on error.
+     * @return IMetaModel
      */
-    static public function getMetaModels($name)
+    public static function getMetaModels($metaModelIdentifier)
     {
-        return self::getServiceContainer()->getFactory()->getMetaModel($name);
-    }
+        $serviceContainer = static::getDefaultServiceContainer();
 
-    /**
-     * Get the id of the MetaModels.
-     *
-     * @param string $name The name of the MetaModels.
-     *
-     * @return string|null The id of the metamodels or null on error.
-     */
-    static public function getIdOfMetaModels($name)
-    {
-        $metamodels = self::getMetaModels($name);
-        if (null === $metamodels) {
-            return null;
+        // If the identifier ist numeric, use the id to name function.
+        if (is_numeric($metaModelIdentifier)) {
+            $metaModelIdentifier = $serviceContainer->getFactory()->translateIdToMetaModelName($metaModelIdentifier);
         }
 
-        return $metamodels->get('id');
-    }
+        $metamodels = $serviceContainer
+            ->getFactory()
+            ->getMetaModel($metaModelIdentifier);
 
+        if ($metamodels === null) {
+            throw new \RuntimeException(sprintf('Could not find a MetaModels with the name %s', $metaModelIdentifier));
+        }
+
+        return $metamodels;
+    }
+    
     /**
-     * Get all attributes from a metamodels.
+     * Get a filter colection by the id.
      *
-     * @param string $metamodelsName The name of the metamoels.
+     * @param string $strId The id of the collection.
      *
-     * @return \MetaModels\Attribute\IAttribute[] The attributes,
+     * @return ICollection The collection with the filter or an empty collection if the ID is unknown.
      */
-    static public function getAttributes($metamodelsName)
+    public static function getFilterCollection($strId)
     {
-        $metamodels = self::getMetaModels($metamodelsName);
+        $serviceContainer = static::getDefaultServiceContainer();
 
-        return $metamodels->getAttributes();
+        return $serviceContainer
+            ->getFilterFactory()
+            ->createCollection($strId);
     }
-
-    /**
-     * Get a collection for the given MetaModels.
+    
+     /**
+     * Get a render setting by the id.
      *
-     * @param IMetaModel|String $metaModels The MetaModels or the name of it.
+     * @param string $metamodels The name of the metamodels.
      *
-     * @param string            $id         The id of the rendersetting.
+     * @param string $strId      The id of the collection.
      *
      * @return \MetaModels\Render\Setting\ICollection|null
      */
-    static public function getCollection($metaModels, $id)
+    public static function getRenderSetting($metamodels, $strId)
     {
-        // Check if we have string, if so try to get the metamodels.
-        if (is_string($metaModels)) {
-            $metaModels = self::getMetaModels($metaModels);
-        }
-
-        // Check if we have a object.
-        if (null === $metaModels || !is_object($metaModels)) {
+        $serviceContainer = static::getDefaultServiceContainer();
+        $metamodels       = static::getMetaModels($metamodels);
+        if ($metamodels === null) {
             return null;
         }
 
-        return self::getServiceContainer()
+        return $serviceContainer
             ->getRenderSettingFactory()
-            ->createCollection($metaModels, $id);
+            ->createCollection($metamodels, $strId);
     }
-
-    /**
-     * Get a filter setting.
+    
+     /**
+     * Get a attribute from a metamodels.
      *
-     * @param string $id The id of the filter setting.
+     * @param string $metamodels The name of the metamodels.
      *
-     * @return \MetaModels\Filter\Setting\ICollection The filter collection. Could be empty collection.
+     * @param string $attribute  The name of the attribute.
+     *
+     * @return IAttribute|null The attribute or null on error.
      */
-    static public function getFilter($id)
+    public static function getAttribute($metamodels, $attribute)
     {
-        return self::getServiceContainer()
-            ->getFilterFactory()
-            ->createCollection($id);
+        $metamodels = self::getMetaModels($metamodels);
+        $attribute  = $metamodels->getAttribute($attribute);
+
+        return $attribute;
+    }
+    
+    /**
+     * Get some data by the id.
+     *
+     * @param string|int $metaModelId The name or the id of the metamodels.
+     *
+     * @param array      $Ids         The ids.
+     *
+     * @param array      $arrAttrOnly A list of attributes we want.
+     *
+     * @return IItems The items.
+     */
+    public static function getByIds($metaModelId, $Ids, $arrAttrOnly = [])
+    {
+        // Get the mm and a new empty filter.
+        $metaModel = static::getMetaModels($metaModelId);
+
+        // Placeholder for SQL.
+        $placeholder = array_fill(0, count($Ids), '?');
+
+        // Add the filter for the pid.
+        $filter = $metaModel->getEmptyFilter();
+        $filter->addFilterRule(
+            new SimpleQuery(
+                sprintf(
+                    'SELECT id FROM %s WHERE id IN (%s)',
+                    $metaModel->getTableName(),
+                    implode(', ', $placeholder)
+                ),
+                $Ids
+            )
+        );
+
+        return $metaModel->findByFilter($filter, '', 0, 0, 'ASC', $arrAttrOnly);
+    }
+    
+     /**
+     * Get some data by the given field.
+     *
+     * @param string|int $metaModelId The name or the id of the metamodels.
+     *
+     * @param string     $field       The name of the field.
+     *
+     * @param array      $values      The list with all values.
+     *
+     * @param array      $arrAttrOnly A list of attributes we want.
+     *
+     * @return \MetaModels\IItem[]|IItems The items.
+     */
+    public static function getManyByField($metaModelId, $field, $values, $arrAttrOnly = [])
+    {
+        // Get the mm and a new empty filter.
+        $metaModel = static::getMetaModels($metaModelId);
+        $attribute = $metaModel->getAttribute($field);
+        if ($attribute === null) {
+            return null;
+        }
+
+        // Add the filter for the pid.
+        $filter = $metaModel->getEmptyFilter();
+        $or     = new ConditionOr();
+        foreach ($values as $value) {
+            $search = new SearchAttribute($attribute, $value);
+            $or->addChild($search);
+        }
+        $filter->addFilterRule($or);
+
+        return $metaModel->findByFilter($filter, '', 0, 0, 'ASC', $arrAttrOnly);
+    }
+    
+    /**
+     * Get items by a given filter id.
+     *
+     *
+     * @param string $strMetaModels   The name of the MetaModels.
+     *
+     * @param string $strFilterId     The id of the filter collection.
+     *
+     * @param int    $intOffset       The offset.
+     *
+     * @param int    $intLimit        The Limit.
+     *
+     * @param string $strSortBy       The field to sort.
+     *
+     * @param string $strSortOrder    The order of sorting.
+     *
+     * @param array  $arrAttrOnly     A list of attributes we want. If a empty array is added, all attributes will be
+     *                                returned.
+     *
+     * @return IItems The items fitting the filter.
+     */
+    public static function getByFilterId(
+        $strMetaModels,
+        $strFilterId,
+        $intOffset = 0,
+        $intLimit = 0,
+        $strSortBy = 'sorting',
+        $strSortOrder = 'ASC',
+        $arrAttrOnly = []
+    ) {
+        // Get the MetaModels and the collection.
+        $objMetaModels       = static::getMetaModels($strMetaModels);
+        $objCollectionFilter = static::getFilterCollection($strFilterId);
+
+        // Make a new filter and ignore GET/POST data.
+        $filter = $objMetaModels->getEmptyFilter();
+        $objCollectionFilter->addRules($filter, []);
+
+        // Get the items and return it.
+        $items = $objMetaModels
+            ->findByFilter($filter, $strSortBy, $intOffset, $intLimit, $strSortOrder, $arrAttrOnly);
+
+        return $items;
     }
 }
